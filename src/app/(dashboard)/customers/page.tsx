@@ -110,7 +110,7 @@ export default function CustomersPage() {
 
   const handleImport = async () => {
     if (!importFile) return alert("Vui lòng chọn file Excel/CSV");
-    if (!importGroupId) return alert("Vui lòng chọn Nhóm để gán cho các khách hàng này");
+    if (!importGroupId) return alert("Vui lòng chọn phương án gán nhóm");
 
     setIsImporting(true);
     try {
@@ -127,13 +127,34 @@ export default function CustomersPage() {
         data = XLSX.utils.sheet_to_json(worksheet);
       }
 
+      // Prepare group mapping for auto
+      const leGroupId = groups.find(g => g.name === "Lẻ")?.id || "";
+      const b2bGroupId = groups.find(g => g.name === "B2B")?.id || "";
+      const sieuThiGroupId = groups.find(g => g.name === "Siêu thị")?.id || "";
+
       // Map data to expected format
-      const formattedData = data.map((row: any) => ({
-        name: row["Tên"] || row["Name"] || row["Họ Tên"] || row["name"],
-        phone: row["SĐT"] || row["Số điện thoại"] || row["Phone"] || row["phone"],
-        groupId: importGroupId,
-        source: row["Nguồn"] || row["Source"] || "Zalo"
-      })).filter(c => c.name && c.phone);
+      const formattedData = data.map((row: any) => {
+        let finalGroupId = importGroupId;
+        
+        if (importGroupId === "auto") {
+          const loaiKhach = String(row["Loại Khách Hàng"] || row["Loại Khách"] || row["Nhóm"] || "").toLowerCase();
+          if (loaiKhach.includes("b2b")) {
+            finalGroupId = b2bGroupId;
+          } else if (loaiKhach.includes("siêu thị") || loaiKhach.includes("sieu thi") || loaiKhach.includes("supermarket")) {
+            finalGroupId = sieuThiGroupId;
+          } else {
+            // Default to 'Lẻ'
+            finalGroupId = leGroupId;
+          }
+        }
+
+        return {
+          name: row["Tên"] || row["Name"] || row["Họ Tên"] || row["name"],
+          phone: row["SĐT"] || row["Số điện thoại"] || row["Phone"] || row["phone"],
+          groupId: finalGroupId,
+          source: row["Nguồn"] || row["Source"] || "Zalo"
+        };
+      }).filter(c => c.name && c.phone);
 
       if (formattedData.length === 0) {
         setIsImporting(false);
@@ -233,6 +254,7 @@ export default function CustomersPage() {
                 <ul className="list-disc pl-5 mt-1">
                   <li>File hỗ trợ: .xlsx, .csv</li>
                   <li>Bắt buộc phải có cột <strong>Tên</strong> (hoặc Name) và <strong>SĐT</strong> (hoặc Phone).</li>
+                  <li>Tuỳ chọn có cột <strong>Loại Khách Hàng</strong> để gán nhóm (Ghi rõ: Khách lẻ / B2B / Siêu thị).</li>
                   <li>Các số điện thoại đã tồn tại sẽ bị bỏ qua tự động.</li>
                 </ul>
               </div>
@@ -241,14 +263,15 @@ export default function CustomersPage() {
                 <Input type="file" accept=".xlsx,.csv" onChange={e => setImportFile(e.target.files?.[0] || null)} />
               </div>
               <div>
-                <label className="text-sm font-medium">Gán Nhóm mặc định cho các khách này</label>
+                <label className="text-sm font-medium">Phương án gán nhóm khách hàng</label>
                 <select 
                   className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
                   value={importGroupId} 
                   onChange={e => setImportGroupId(e.target.value)}
                 >
-                  <option value="">-- Chọn nhóm --</option>
-                  {groups.map(g => <option key={g.id} value={g.id}>{g.name}</option>)}
+                  <option value="">-- Chọn phương án gán nhóm --</option>
+                  <option value="auto">✨ Tự động phân loại (dựa vào cột Loại Khách Hàng trong file)</option>
+                  {groups.map(g => <option key={g.id} value={g.id}>Ép tất cả vào nhóm: {g.name}</option>)}
                 </select>
               </div>
               <Button 
