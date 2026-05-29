@@ -127,7 +127,9 @@ export default function ReceivablesPage() {
                   <span className={`px-2 py-1 rounded-full text-xs font-medium ${
                     r.status === 'Đã thanh toán' ? 'bg-green-100 text-green-800' : 
                     r.status === 'Đã hủy' ? 'bg-gray-100 text-gray-600' : 
-                    'bg-red-100 text-red-800'
+                    r.status.includes('Quá hạn') ? 'bg-red-600 text-white shadow-sm' :
+                    r.status === 'Thanh toán một phần' ? 'bg-blue-100 text-blue-800' :
+                    'bg-orange-100 text-orange-800'
                   }`}>
                     {r.status}
                   </span>

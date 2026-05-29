@@ -77,6 +77,15 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
         throw new Error(`Đơn hàng đang ở trạng thái ${status}`);
       }
 
+      if (dbStatus === "Huy") {
+        const checkReceivable = await tx.receivable.findFirst({
+          where: { orderId: params.id }
+        });
+        if (checkReceivable && checkReceivable.paidAmount > 0) {
+          throw new Error(`Đơn hàng này đã được thanh toán công nợ (${checkReceivable.paidAmount.toLocaleString()} ₫). Không thể hủy trực tiếp. Vui lòng liên hệ Kế toán để xử lý hoàn tiền trước!`);
+        }
+      }
+
       // Lock row an toàn hoặc dùng updateMany để tránh Race Condition khi Hoàn Thành
       if (dbStatus === "HoanThanh") {
         const updatedCount = await tx.order.updateMany({
