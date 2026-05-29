@@ -21,7 +21,7 @@ export async function GET() {
 export async function POST(req: Request) {
   try {
     const body = await req.json();
-    const { skuCode, name, packagingKg, retailPrice, b2bPrice, stock } = body;
+    const { skuCode, name, packagingKg, retailPrice, b2bPrice, sieuThiPrice, stock } = body;
 
     if (!skuCode || !name || !packagingKg) {
       return NextResponse.json({ error: "Vui lòng nhập đủ thông tin sản phẩm" }, { status: 400 });
@@ -30,13 +30,17 @@ export async function POST(req: Request) {
     const groups = await prisma.customerGroup.findMany();
     const retailGroup = groups.find(g => g.name === "Le");
     const b2bGroup = groups.find(g => g.name === "B2B");
+    const sieuThiGroup = groups.find(g => g.name === "SieuThi");
 
     const priceData = [];
-    if (retailGroup && retailPrice) {
+    if (retailGroup && retailPrice !== undefined) {
       priceData.push({ groupId: retailGroup.id, price: retailPrice });
     }
-    if (b2bGroup && b2bPrice) {
+    if (b2bGroup && b2bPrice !== undefined) {
       priceData.push({ groupId: b2bGroup.id, price: b2bPrice });
+    }
+    if (sieuThiGroup && sieuThiPrice !== undefined) {
+      priceData.push({ groupId: sieuThiGroup.id, price: sieuThiPrice });
     }
 
     const newProduct = await prisma.product.create({

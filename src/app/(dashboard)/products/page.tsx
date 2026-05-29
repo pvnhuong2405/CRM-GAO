@@ -11,7 +11,7 @@ export default function ProductsPage() {
   const [groups, setGroups] = useState<any[]>([]);
   
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [form, setForm] = useState({ id: "", skuCode: "", name: "", packagingKg: 10, retailPrice: 0, b2bPrice: 0 });
+  const [form, setForm] = useState({ id: "", skuCode: "", name: "", packagingKg: 10, retailPrice: 0, b2bPrice: 0, sieuThiPrice: 0 });
 
   const fetchData = async () => {
     const [pRes, gRes] = await Promise.all([
@@ -26,10 +26,12 @@ export default function ProductsPage() {
     if (pData.products && pData.prices && Array.isArray(gData)) {
       const retailGroup = gData.find(g => g.name === "Le");
       const b2bGroup = gData.find(g => g.name === "B2B");
+      const sieuThiGroup = gData.find(g => g.name === "SieuThi" || g.name === "Siêu thị");
 
       const mapped = pData.products.map((p: any) => {
         const retailPrice = pData.prices.find((pl: any) => pl.productId === p.id && pl.groupId === retailGroup?.id);
         const b2bPrice = pData.prices.find((pl: any) => pl.productId === p.id && pl.groupId === b2bGroup?.id);
+        const sieuThiPrice = pData.prices.find((pl: any) => pl.productId === p.id && pl.groupId === sieuThiGroup?.id);
         
         return {
           id: p.id,
@@ -38,6 +40,7 @@ export default function ProductsPage() {
           packagingKg: p.packagingKg,
           retailPrice: retailPrice ? retailPrice.price : 0,
           b2bPrice: b2bPrice ? b2bPrice.price : 0,
+          sieuThiPrice: sieuThiPrice ? sieuThiPrice.price : 0,
           stock: Math.floor(Math.random() * 100) + 10 // stock mẫu
         };
       });
@@ -63,7 +66,7 @@ export default function ProductsPage() {
     if (res.ok) {
       alert(isEditing ? "Cập nhật thành công" : "Thêm sản phẩm thành công");
       setIsModalOpen(false);
-      setForm({ id: "", skuCode: "", name: "", packagingKg: 10, retailPrice: 0, b2bPrice: 0 });
+      setForm({ id: "", skuCode: "", name: "", packagingKg: 10, retailPrice: 0, b2bPrice: 0, sieuThiPrice: 0 });
       fetchData();
     } else {
       const err = await res.json();
@@ -78,7 +81,8 @@ export default function ProductsPage() {
       name: item.name,
       packagingKg: item.packagingKg,
       retailPrice: item.retailPrice,
-      b2bPrice: item.b2bPrice
+      b2bPrice: item.b2bPrice,
+      sieuThiPrice: item.sieuThiPrice
     });
     setIsModalOpen(true);
   };
@@ -108,7 +112,7 @@ export default function ProductsPage() {
         
         <Dialog open={isModalOpen} onOpenChange={(open) => {
           setIsModalOpen(open);
-          if (!open) setForm({ id: "", skuCode: "", name: "", packagingKg: 10, retailPrice: 0, b2bPrice: 0 });
+          if (!open) setForm({ id: "", skuCode: "", name: "", packagingKg: 10, retailPrice: 0, b2bPrice: 0, sieuThiPrice: 0 });
         }}>
           <DialogTrigger render={<Button className="bg-green-600 hover:bg-green-700">+ Thêm sản phẩm mới</Button>} />
           <DialogContent>
@@ -139,6 +143,10 @@ export default function ProductsPage() {
                   <label className="text-sm font-medium text-blue-700">Giá B2B (VND)</label>
                   <Input type="number" value={form.b2bPrice} onChange={e => setForm({...form, b2bPrice: Number(e.target.value)})} />
                 </div>
+                <div className="flex-1">
+                  <label className="text-sm font-medium text-purple-700">Giá Siêu Thị (VND)</label>
+                  <Input type="number" value={form.sieuThiPrice} onChange={e => setForm({...form, sieuThiPrice: Number(e.target.value)})} />
+                </div>
               </div>
               <Button onClick={handleSave} className="w-full bg-green-600 hover:bg-green-700">Lưu sản phẩm</Button>
             </div>
@@ -154,6 +162,7 @@ export default function ProductsPage() {
               <TableHead className="font-medium">Tên sản phẩm</TableHead>
               <TableHead className="font-medium">Giá bán lẻ</TableHead>
               <TableHead className="font-medium text-blue-700">Giá B2B</TableHead>
+              <TableHead className="font-medium text-purple-700">Giá Siêu Thị</TableHead>
               <TableHead className="font-medium">Tồn kho</TableHead>
               <TableHead className="font-medium text-center">Thao tác</TableHead>
             </TableRow>
@@ -168,6 +177,9 @@ export default function ProductsPage() {
                 </TableCell>
                 <TableCell className="text-blue-600 font-bold">
                   {item.b2bPrice.toLocaleString()} ₫
+                </TableCell>
+                <TableCell className="text-purple-600 font-bold">
+                  {item.sieuThiPrice.toLocaleString()} ₫
                 </TableCell>
                 <TableCell>
                   <div className="flex items-center space-x-2">
@@ -188,7 +200,7 @@ export default function ProductsPage() {
             ))}
             {productData.length === 0 && (
               <TableRow>
-                <TableCell colSpan={6} className="text-center py-4 text-gray-500">Chưa có sản phẩm nào</TableCell>
+                <TableCell colSpan={7} className="text-center py-4 text-gray-500">Chưa có sản phẩm nào</TableCell>
               </TableRow>
             )}
           </TableBody>

@@ -4,7 +4,7 @@ import prisma from "@/lib/prisma";
 export async function PUT(req: Request, { params }: { params: { id: string } }) {
   try {
     const body = await req.json();
-    const { skuCode, name, packagingKg, retailPrice, b2bPrice } = body;
+    const { skuCode, name, packagingKg, retailPrice, b2bPrice, sieuThiPrice } = body;
 
     if (!skuCode || !name || !packagingKg) {
       return NextResponse.json({ error: "Vui lòng nhập đủ thông tin sản phẩm" }, { status: 400 });
@@ -18,6 +18,7 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
     const groups = await prisma.customerGroup.findMany();
     const retailGroup = groups.find(g => g.name === "Le");
     const b2bGroup = groups.find(g => g.name === "B2B");
+    const sieuThiGroup = groups.find(g => g.name === "SieuThi");
 
     if (retailGroup && retailPrice !== undefined) {
       await prisma.priceList.upsert({
@@ -32,6 +33,14 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
         where: { productId_groupId: { productId: product.id, groupId: b2bGroup.id } },
         update: { price: b2bPrice },
         create: { productId: product.id, groupId: b2bGroup.id, price: b2bPrice }
+      });
+    }
+
+    if (sieuThiGroup && sieuThiPrice !== undefined) {
+      await prisma.priceList.upsert({
+        where: { productId_groupId: { productId: product.id, groupId: sieuThiGroup.id } },
+        update: { price: sieuThiPrice },
+        create: { productId: product.id, groupId: sieuThiGroup.id, price: sieuThiPrice }
       });
     }
 
