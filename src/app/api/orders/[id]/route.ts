@@ -2,8 +2,15 @@ export const dynamic = "force-dynamic";
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 
+import { getServerSession } from "next-auth/next";
+import { authOptions } from "@/lib/auth";
+
 export async function GET(req: Request, { params }: { params: { id: string } }) {
   try {
+    const session = await getServerSession(authOptions);
+    if (!session || !session.user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
     const order = await prisma.order.findUnique({
       where: { id: params.id },
       include: {
@@ -43,6 +50,11 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
 
 export async function PUT(req: Request, { params }: { params: { id: string } }) {
   try {
+    const session = await getServerSession(authOptions);
+    if (!session || !session.user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
     const { status } = await req.json();
     let dbStatus = "Moi";
     if (status === "Chờ giao" || status === "Đang đóng gói") dbStatus = "ChoGiao";
@@ -57,13 +69,35 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
       });
       if (!existingOrder) throw new Error("Không tìm thấy đơn hàng");
 
-      const order = await tx.order.update({
-        where: { id: params.id },
-        data: { status: dbStatus as any }
-      });
+      // Validate logic chuyển trạng thái
+      if (existingOrder.status === "Huy") {
+        throw new Error("Đơn hàng đã hủy không thể cập nhật trạng thái khác");
+      }
+      if (existingOrder.status === dbStatus) {
+        throw new Error(`Đơn hàng đang ở trạng thái ${status}`);
+      }
+
+      // Lock row an toàn hoặc dùng updateMany để tránh Race Condition khi Hoàn Thành
+      if (dbStatus === "HoanThanh") {
+        const updatedCount = await tx.order.updateMany({
+          where: { id: params.id, status: { not: "HoanThanh" } },
+          data: { status: dbStatus as any }
+        });
+        if (updatedCount.count === 0) {
+          throw new Error("Đơn hàng đã được hoàn thành bởi người khác");
+        }
+      } else {
+        await tx.order.update({
+          where: { id: params.id },
+          data: { status: dbStatus as any }
+        });
+      }
+
+      // Fetch lại order sau khi update
+      const order = await tx.order.findUnique({ where: { id: params.id } }) || existingOrder;
 
       // Nếu đơn bị hủy và trước đó chưa hủy -> Cộng trả lại tồn kho
-      if (dbStatus === "Huy" && existingOrder.status !== "Huy") {
+      if (dbStatus === "Huy") {
         for (const item of existingOrder.items) {
           await tx.product.update({
             where: { id: item.productId },
@@ -76,10 +110,32 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
           where: { orderId: order.id },
           data: { status: "DaHuy" }
         });
+        // Hoàn lại điểm nếu khách đã dùng hoặc đã được cộng
+        const loyaltyRecords = await tx.loyaltyPoint.findMany({
+          where: { orderId: order.id }
+        });
+        
+        let pointAdjustment = 0;
+        for (const lp of loyaltyRecords) {
+          if (lp.type === "Redeem") {
+            pointAdjustment += lp.points; // Trả lại điểm đã xài
+          } else if (lp.type === "Earn") {
+            pointAdjustment -= lp.points; // Thu hồi điểm đã tích
+          }
+        }
+        
+        if (pointAdjustment !== 0) {
+          await tx.customer.update({
+            where: { id: order.customerId },
+            data: { totalPoints: { increment: pointAdjustment } }
+          });
+        }
+        
+        await tx.loyaltyPoint.deleteMany({ where: { orderId: order.id } });
       }
 
       // Xử lý cộng điểm tích lũy khi Hoàn Thành (Phase 2 - Loyalty)
-      if (dbStatus === "HoanThanh" && existingOrder.status !== "HoanThanh") {
+      if (dbStatus === "HoanThanh") {
         const customer = await tx.customer.findUnique({ where: { id: order.customerId } });
         if (customer) {
           const pointsEarned = Math.floor(order.totalAmount / 100000);

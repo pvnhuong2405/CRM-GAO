@@ -3,8 +3,16 @@ import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import bcrypt from "bcryptjs";
 
+import { getServerSession } from "next-auth/next";
+import { authOptions } from "@/lib/auth";
+
 export async function GET(req: Request) {
   try {
+    const session = await getServerSession(authOptions);
+    if (!session || !session.user || (session.user as any).role !== "admin") {
+      return NextResponse.json({ error: "Forbidden: Only Admin can seed data." }, { status: 403 });
+    }
+
     // 1. Clear database
     await prisma.receivable.deleteMany();
     await prisma.orderItem.deleteMany();

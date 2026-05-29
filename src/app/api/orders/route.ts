@@ -18,12 +18,51 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Dữ liệu không hợp lệ" }, { status: 400 });
     }
 
-    const itemsTotal = items.reduce((acc: number, item: any) => acc + (item.quantity * item.unitPrice), 0);
+    const customer = await prisma.customer.findUnique({ where: { id: customerId } });
+    if (!customer) return NextResponse.json({ error: "Khách hàng không tồn tại" }, { status: 404 });
+
+    // Lấy giá trị thực tế từ Server
+    const productIds = items.map((i: any) => i.productId);
+    const priceLists = await prisma.priceList.findMany({
+      where: { productId: { in: productIds }, groupId: customer.groupId }
+    });
+    
+    // Fallback basePrice nếu không có trong PriceList
+    const products = await prisma.product.findMany({
+      where: { id: { in: productIds } }
+    });
+
+    let itemsTotal = 0;
+    const validatedItems: any[] = [];
+    for (const item of items) {
+      const priceRecord = priceLists.find(p => p.productId === item.productId);
+      const product = products.find(p => p.id === item.productId);
+      if (!product) return NextResponse.json({ error: "Sản phẩm không hợp lệ" }, { status: 400 });
+
+      const unitPrice = priceRecord ? priceRecord.price : product.basePrice;
+      const subtotal = item.quantity * unitPrice;
+      itemsTotal += subtotal;
+      validatedItems.push({
+        productId: item.productId,
+        quantity: item.quantity,
+        unitPrice,
+        subtotal
+      });
+    }
+
     const shippingFee = shipping ? Number(shipping.shippingFee) || 0 : 0;
     
     // Quy đổi điểm: 1 điểm = 1000 VNĐ
     const pointsToUse = usedPoints ? Number(usedPoints) : 0;
-    const pointsDiscount = pointsToUse * 1000;
+    if (pointsToUse > 0 && customer.totalPoints < pointsToUse) {
+      return NextResponse.json({ error: "Khách hàng không đủ điểm tích lũy" }, { status: 400 });
+    }
+
+    let pointsDiscount = pointsToUse * 1000;
+    // Cap discount
+    if (pointsDiscount > itemsTotal + shippingFee) {
+      pointsDiscount = itemsTotal + shippingFee;
+    }
     
     const totalAmount = itemsTotal + shippingFee - pointsDiscount;
     const orderCode = `DH${Date.now().toString().slice(-6)}`;
@@ -49,12 +88,7 @@ export async function POST(req: Request) {
           totalAmount,
           note,
           items: {
-            create: items.map((item: any) => ({
-              productId: item.productId,
-              quantity: item.quantity,
-              unitPrice: item.unitPrice,
-              subtotal: item.quantity * item.unitPrice
-            }))
+            create: validatedItems
           },
           ...(shipping && {
             shipment: {
@@ -96,22 +130,19 @@ export async function POST(req: Request) {
 
       // 3. Xử lý trừ điểm khách hàng nếu có sử dụng
       if (pointsToUse > 0) {
-        const cust = await tx.customer.findUnique({ where: { id: customerId } });
-        if (cust && (cust.totalPoints || 0) >= pointsToUse) {
-          await tx.customer.update({
-            where: { id: customerId },
-            data: { totalPoints: { decrement: pointsToUse } }
-          });
-          await tx.loyaltyPoint.create({
-            data: {
-              customerId,
-              orderId: order.id,
-              points: pointsToUse,
-              type: "Redeem",
-              note: `Dùng điểm giảm giá Đơn hàng ${order.orderCode}`
-            }
-          });
-        }
+        await tx.customer.update({
+          where: { id: customerId },
+          data: { totalPoints: { decrement: pointsToUse } }
+        });
+        await tx.loyaltyPoint.create({
+          data: {
+            customerId,
+            orderId: order.id,
+            points: pointsToUse,
+            type: "Redeem",
+            note: `Dùng điểm giảm giá Đơn hàng ${order.orderCode}`
+          }
+        });
       }
 
       return order;
@@ -126,6 +157,11 @@ export async function POST(req: Request) {
 
 export async function GET(req: Request) {
   try {
+    const session = await getServerSession(authOptions);
+    if (!session || !session.user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
     const orders = await prisma.order.findMany({
       include: { 
         customer: true, 

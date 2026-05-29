@@ -7,20 +7,20 @@ export default withAuth(
     const path = req.nextUrl.pathname;
 
     // Admin có quyền truy cập tất cả
-    if (token?.role === "Admin") {
+    if (token?.role === "admin") {
       return NextResponse.next();
     }
 
     // Role Sale
-    if (token?.role === "Sale") {
-      if (path.startsWith("/dashboard") || path.startsWith("/settings")) {
+    if (token?.role === "sale") {
+      if (path.startsWith("/dashboard") || path.startsWith("/settings") || path.startsWith("/users")) {
         return NextResponse.redirect(new URL("/orders", req.url));
       }
     }
 
     // Role Kho
-    if (token?.role === "Kho") {
-      if (!path.startsWith("/orders")) {
+    if (token?.role === "kho") {
+      if (!path.startsWith("/orders") && !path.startsWith("/products")) {
         return NextResponse.redirect(new URL("/orders", req.url));
       }
     }
@@ -35,5 +35,5 @@ export default withAuth(
 );
 
 export const config = {
-  matcher: ["/((?!api/auth|api/seed|api/debug|_next/static|_next/image|favicon.ico|login|register).*)"],
+  matcher: ["/((?!api/auth|_next/static|_next/image|favicon.ico|login|register).*)"],
 };
