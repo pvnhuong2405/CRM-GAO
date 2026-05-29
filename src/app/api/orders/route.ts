@@ -110,7 +110,13 @@ export async function POST(req: Request) {
 export async function GET(req: Request) {
   try {
     const orders = await prisma.order.findMany({
-      include: { customer: true, shipment: true },
+      include: { 
+        customer: true, 
+        shipment: true,
+        items: {
+          include: { product: true }
+        }
+      },
       orderBy: { createdAt: "desc" }
     });
     
@@ -126,7 +132,8 @@ export async function GET(req: Request) {
       totalAmount: o.totalAmount,
       note: o.note,
       createdAt: o.createdAt,
-      shipment: o.shipment
+      shipment: o.shipment,
+      items: o.items
     }));
     return NextResponse.json(mapped);
   } catch (error: any) {

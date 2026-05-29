@@ -14,6 +14,10 @@ export default function CustomersPage() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [form, setForm] = useState({ id: "", name: "", phone: "", groupId: "", source: "Zalo" });
 
+  const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false);
+  const [selectedCustomer, setSelectedCustomer] = useState<any>(null);
+  const [customerOrders, setCustomerOrders] = useState<any[]>([]);
+
   const fetchData = async () => {
     const [cRes, gRes] = await Promise.all([
       fetch("/api/customers"),
@@ -79,6 +83,18 @@ export default function CustomersPage() {
     }
   };
 
+  const handleViewHistory = async (customer: any) => {
+    setSelectedCustomer(customer);
+    setIsHistoryModalOpen(true);
+    setCustomerOrders([]); // Reset old data
+    
+    const res = await fetch(`/api/customers/${customer.id}/orders`);
+    if (res.ok) {
+      const data = await res.json();
+      setCustomerOrders(data);
+    }
+  };
+
   const filteredCustomers = customers.filter(c => 
     c.name.toLowerCase().includes(search.toLowerCase()) || 
     c.phone.includes(search)
@@ -136,6 +152,51 @@ export default function CustomersPage() {
             </div>
           </DialogContent>
         </Dialog>
+
+        <Dialog open={isHistoryModalOpen} onOpenChange={setIsHistoryModalOpen}>
+          <DialogContent className="max-w-3xl">
+            <DialogHeader>
+              <DialogTitle>Lịch sử mua hàng - {selectedCustomer?.name}</DialogTitle>
+            </DialogHeader>
+            <div className="py-4">
+              <Table>
+                <TableHeader>
+                  <TableRow className="bg-gray-50">
+                    <TableHead>Mã Đơn</TableHead>
+                    <TableHead>Ngày tạo</TableHead>
+                    <TableHead>Kênh</TableHead>
+                    <TableHead className="text-right">Tổng tiền</TableHead>
+                    <TableHead className="text-center">Trạng thái</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {customerOrders.map(o => (
+                    <TableRow key={o.id}>
+                      <TableCell className="font-medium text-green-700">{o.orderCode}</TableCell>
+                      <TableCell>{new Date(o.createdAt).toLocaleDateString("vi-VN")}</TableCell>
+                      <TableCell>{o.channel}</TableCell>
+                      <TableCell className="text-right font-medium">{o.totalAmount.toLocaleString()} ₫</TableCell>
+                      <TableCell className="text-center">
+                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                          o.status === "Hoàn thành" ? "bg-green-100 text-green-800" :
+                          o.status === "Hủy" ? "bg-red-100 text-red-800" :
+                          "bg-blue-100 text-blue-800"
+                        }`}>
+                          {o.status}
+                        </span>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                  {customerOrders.length === 0 && (
+                    <TableRow>
+                      <TableCell colSpan={5} className="text-center py-4 text-gray-500">Khách hàng này chưa có đơn hàng nào.</TableCell>
+                    </TableRow>
+                  )}
+                </TableBody>
+              </Table>
+            </div>
+          </DialogContent>
+        </Dialog>
       </div>
 
       <div className="bg-white border border-gray-200 rounded-lg shadow-sm overflow-hidden p-4">
@@ -167,8 +228,9 @@ export default function CustomersPage() {
                 </TableCell>
                 <TableCell className="text-gray-500">{c.source}</TableCell>
                 <TableCell className="text-center space-x-3">
-                  <button onClick={() => handleEdit(c)} className="text-gray-400 hover:text-blue-600">✏️</button>
-                  <button onClick={() => handleDelete(c.id)} className="text-gray-400 hover:text-red-600">🗑️</button>
+                  <button onClick={() => handleViewHistory(c)} className="text-gray-400 hover:text-indigo-600" title="Xem lịch sử">🕒</button>
+                  <button onClick={() => handleEdit(c)} className="text-gray-400 hover:text-blue-600" title="Sửa">✏️</button>
+                  <button onClick={() => handleDelete(c.id)} className="text-gray-400 hover:text-red-600" title="Xóa">🗑️</button>
                 </TableCell>
               </TableRow>
             ))}

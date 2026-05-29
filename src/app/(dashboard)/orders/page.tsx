@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Download, RefreshCw, Plus } from "lucide-react";
 import { useEffect, useState } from "react";
 import Link from "next/link";
@@ -13,6 +14,8 @@ export default function OrdersPage() {
   const [orders, setOrders] = useState<any[]>([]);
   const [statusFilter, setStatusFilter] = useState("all");
   const [dateFilter, setDateFilter] = useState("all");
+  const [selectedOrder, setSelectedOrder] = useState<any>(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
 
   const fetchOrders = async () => {
     const res = await fetch("/api/orders");
@@ -156,7 +159,12 @@ export default function OrdersPage() {
               <TableRow key={o.id}>
                 <TableCell><Checkbox /></TableCell>
                 <TableCell>
-                  <div className="font-bold text-green-700">{o.orderCode}</div>
+                  <div 
+                    className="font-bold text-green-700 cursor-pointer hover:underline"
+                    onClick={() => { setSelectedOrder(o); setIsModalOpen(true); }}
+                  >
+                    {o.orderCode}
+                  </div>
                 </TableCell>
                 <TableCell>
                   <div className="font-medium text-gray-900">{o.customer?.name || "Khách ẩn danh"}</div>
@@ -213,6 +221,79 @@ export default function OrdersPage() {
           </TableBody>
         </Table>
       </div>
+
+      {/* Modal Chi tiết đơn hàng */}
+      <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
+        <DialogContent className="max-w-3xl">
+          <DialogHeader>
+            <DialogTitle>Chi tiết Đơn hàng: <span className="text-green-700">{selectedOrder?.orderCode}</span></DialogTitle>
+          </DialogHeader>
+          {selectedOrder && (
+            <div className="space-y-6 py-4">
+              <div className="grid grid-cols-2 gap-4 text-sm bg-gray-50 p-4 rounded-lg">
+                <div>
+                  <p className="text-gray-500 mb-1">Khách hàng</p>
+                  <p className="font-medium text-gray-900">{selectedOrder.customer?.name}</p>
+                  <p>{selectedOrder.customer?.phone}</p>
+                </div>
+                <div>
+                  <p className="text-gray-500 mb-1">Kênh đặt hàng</p>
+                  <Badge variant="outline" className="text-blue-600 border-blue-200">{selectedOrder.channel}</Badge>
+                </div>
+                <div>
+                  <p className="text-gray-500 mb-1">Trạng thái hiện tại</p>
+                  <Badge className={getStatusColor(selectedOrder.status)}>{selectedOrder.status}</Badge>
+                </div>
+                <div>
+                  <p className="text-gray-500 mb-1">Ngày đặt</p>
+                  <p>{new Date(selectedOrder.createdAt).toLocaleString("vi-VN")}</p>
+                </div>
+              </div>
+
+              <div>
+                <h3 className="font-medium mb-3 text-gray-800">Sản phẩm đã mua</h3>
+                <div className="border rounded-lg overflow-hidden">
+                  <Table>
+                    <TableHeader className="bg-gray-50">
+                      <TableRow>
+                        <TableHead>Tên mặt hàng</TableHead>
+                        <TableHead className="text-center">Số lượng</TableHead>
+                        <TableHead className="text-right">Đơn giá</TableHead>
+                        <TableHead className="text-right">Thành tiền</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {selectedOrder.items && selectedOrder.items.map((item: any) => (
+                        <TableRow key={item.id}>
+                          <TableCell className="font-medium text-gray-800">{item.product?.name || "SP đã bị xoá"}</TableCell>
+                          <TableCell className="text-center">{item.quantity}</TableCell>
+                          <TableCell className="text-right text-gray-600">{item.unitPrice.toLocaleString()} ₫</TableCell>
+                          <TableCell className="text-right font-medium">{(item.quantity * item.unitPrice).toLocaleString()} ₫</TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              </div>
+
+              <div className="flex justify-end pt-4 border-t border-dashed text-sm">
+                <div className="space-y-2 text-right w-64">
+                  {selectedOrder.shipment && (
+                    <div className="flex justify-between text-gray-600">
+                      <span>Phí vận chuyển ({selectedOrder.shipment.provider}):</span>
+                      <span>+{selectedOrder.shipment.shippingFee.toLocaleString()} ₫</span>
+                    </div>
+                  )}
+                  <div className="flex justify-between font-bold text-lg pt-2 border-t">
+                    <span>Tổng thanh toán:</span>
+                    <span className="text-red-600">{selectedOrder.totalAmount.toLocaleString()} ₫</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

@@ -31,9 +31,9 @@ export async function GET(req: Request) {
     }));
 
     if (results.length > 0) {
-      return NextResponse.json({ found: true, customer: results[0] });
+      return NextResponse.json({ found: true, customers: results });
     } else {
-      return NextResponse.json({ found: false });
+      return NextResponse.json({ found: false, customers: [] });
     }
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 500 });
