@@ -1,0 +1,59 @@
+export const dynamic = "force-dynamic";
+import { NextResponse } from "next/server";
+import prisma from "@/lib/prisma";
+
+export async function GET() {
+  try {
+    const products = await prisma.product.findMany({
+      orderBy: { createdAt: "desc" }
+    });
+    const prices = await prisma.priceList.findMany();
+    
+    return NextResponse.json({
+      products,
+      prices
+    });
+  } catch (error: any) {
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+}
+
+export async function POST(req: Request) {
+  try {
+    const body = await req.json();
+    const { skuCode, name, packagingKg, retailPrice, b2bPrice, stock } = body;
+
+    if (!skuCode || !name || !packagingKg) {
+      return NextResponse.json({ error: "Vui lòng nhập đủ thông tin sản phẩm" }, { status: 400 });
+    }
+
+    const groups = await prisma.customerGroup.findMany();
+    const retailGroup = groups.find(g => g.name === "Le");
+    const b2bGroup = groups.find(g => g.name === "B2B");
+
+    const priceData = [];
+    if (retailGroup && retailPrice) {
+      priceData.push({ groupId: retailGroup.id, price: retailPrice });
+    }
+    if (b2bGroup && b2bPrice) {
+      priceData.push({ groupId: b2bGroup.id, price: b2bPrice });
+    }
+
+    const newProduct = await prisma.product.create({
+      data: {
+        skuCode, 
+        name, 
+        packagingKg, 
+        basePrice: retailPrice || 0, 
+        stock: stock || 0,
+        priceLists: {
+          create: priceData
+        }
+      }
+    });
+
+    return NextResponse.json({ message: "Thêm sản phẩm thành công", product: newProduct });
+  } catch (error: any) {
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+}

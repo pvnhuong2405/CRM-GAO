@@ -1,0 +1,242 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+}
+
+// -----------------------------------------------------------------------------
+// ENUMS
+// -----------------------------------------------------------------------------
+enum Role {
+  admin
+  sale
+  kho
+  accounting
+}
+
+enum GroupName {
+  Le        @map("Lẻ")
+  B2B
+  SieuThi   @map("Siêu thị")
+}
+
+enum CustomerSource {
+  Zalo
+  Facebook
+  Web
+  Phone     @map("Gọi điện")
+  Khac      @map("Khác")
+}
+
+enum OrderChannel {
+  Zalo
+  Facebook
+  Web
+  Phone
+}
+
+enum OrderStatus {
+  Moi           @map("Mới")
+  ChoGiao       @map("Chờ giao")
+  DangGiao      @map("Đang giao")
+  HoanThanh     @map("Hoàn thành")
+  Huy           @map("Hủy")
+}
+
+enum ReceivableStatus {
+  ChuaThanhToan     @map("Chưa thanh toán")
+  ThanhToanMotPhan  @map("Thanh toán một phần")
+  DaThanhToan       @map("Đã thanh toán")
+  DaHuy             @map("Đã hủy")
+}
+
+enum ShipmentProvider {
+  Ahamove
+  GHN
+  ViettelPost
+}
+
+enum ShipmentStatus {
+  Pending
+  Delivering
+  Delivered
+  Failed
+  Cancelled
+}
+
+enum PointType {
+  Earn     @map("Tích điểm")
+  Redeem   @map("Tiêu điểm")
+}
+
+enum DiscountType {
+  Percentage
+  FixedAmount
+}
+
+// -----------------------------------------------------------------------------
+// MODELS
+// -----------------------------------------------------------------------------
+
+model User {
+  id           String   @id @default(uuid())
+  email        String   @unique
+  name         String
+  role         Role     @default(sale)
+  passwordHash String
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  
+  // Relations
+  orders       Order[]
+}
+
+model CustomerGroup {
+  id          String      @id @default(uuid())
+  name        GroupName   @unique
+  description String?
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  // Relations
+  customers   Customer[]
+  priceLists  PriceList[]
+}
+
+model Customer {
+  id            String         @id @default(uuid())
+  name          String
+  phone         String         @unique
+  groupId       String
+  group         CustomerGroup  @relation(fields: [groupId], references: [id])
+  source        CustomerSource @default(Zalo)
+  familySize    Int?
+  avgKgPerDay            Float?
+  totalPoints            Int            @default(0)
+  isActive               Boolean        @default(true)
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+
+  // Relations
+  orders        Order[]
+  receivables   Receivable[]
+  loyaltyPoints LoyaltyPoint[]
+}
+
+model Product {
+  id          String      @id @default(uuid())
+  skuCode     String      @unique
+  name        String
+  packagingKg Float
+  basePrice   Float
+  stock       Int         @default(0)
+  isActive    Boolean     @default(true)
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  // Relations
+  priceLists  PriceList[]
+  orderItems  OrderItem[]
+}
+
+model PriceList {
+  id          String        @id @default(uuid())
+  productId   String
+  product     Product       @relation(fields: [productId], references: [id], onDelete: Cascade)
+  groupId     String
+  group       CustomerGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  price       Float
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  @@unique([productId, groupId])
+}
+
+model Order {
+  id          String        @id @default(uuid())
+  orderCode   String        @unique
+  customerId  String
+  customer    Customer      @relation(fields: [customerId], references: [id])
+  createdBy   String
+  user        User          @relation(fields: [createdBy], references: [id])
+  channel     OrderChannel  @default(Phone)
+  status      OrderStatus   @default(Moi)
+  totalAmount Float
+  note        String?
+  campaignId  String?
+  campaign    Campaign?     @relation(fields: [campaignId], references: [id])
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  // Relations
+  items         OrderItem[]
+  receivables   Receivable[]
+  shipment      Shipment?
+  loyaltyPoints LoyaltyPoint[]
+}
+
+model OrderItem {
+  id          String   @id @default(uuid())
+  orderId     String
+  order       Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  productId   String
+  product     Product  @relation(fields: [productId], references: [id])
+  quantity    Int
+  unitPrice   Float
+  subtotal    Float
+}
+
+model Receivable {
+  id          String            @id @default(uuid())
+  orderId     String
+  order       Order             @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  customerId  String
+  customer    Customer          @relation(fields: [customerId], references: [id])
+  totalDebt   Float
+  paidAmount  Float             @default(0)
+  dueDate     DateTime
+  status      ReceivableStatus  @default(ChuaThanhToan)
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+}
+
+model Shipment {
+  id            String          @id @default(uuid())
+  orderId       String          @unique
+  order         Order           @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  provider      ShipmentProvider
+  trackingCode  String?
+  status        ShipmentStatus  @default(Pending)
+  shippingFee   Float           @default(0)
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+}
+
+model LoyaltyPoint {
+  id            String    @id @default(uuid())
+  customerId    String
+  customer      Customer  @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  orderId       String?
+  order         Order?    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  points        Int
+  type          PointType
+  note          String?
+  createdAt     DateTime  @default(now())
+}
+
+model Campaign {
+  id            String        @id @default(uuid())
+  name          String
+  startDate     DateTime
+  endDate       DateTime
+  discountType  DiscountType
+  discountValue Float
+  isActive      Boolean       @default(true)
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+  
+  orders        Order[]
+}
