@@ -20,7 +20,13 @@ export default withAuth(
 
     // Role Kho
     if (token?.role === "kho") {
-      if (!path.startsWith("/orders") && !path.startsWith("/products")) {
+      const allowedPaths = [
+        "/orders", "/products", 
+        "/api/orders", "/api/products"
+      ];
+      const isAllowed = allowedPaths.some(p => path.startsWith(p));
+      
+      if (!isAllowed) {
         return NextResponse.redirect(new URL("/orders", req.url));
       }
     }
