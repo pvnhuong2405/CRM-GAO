@@ -28,7 +28,10 @@ export default function ReceivablesPage() {
       }));
       setReceivables(mapped);
       
-      const sum = mapped.reduce((acc: number, curr: any) => acc + (curr.totalDebt - curr.paidAmount), 0);
+      const sum = mapped.reduce((acc: number, curr: any) => {
+        if (curr.status === "Đã hủy") return acc;
+        return acc + (curr.totalDebt - curr.paidAmount);
+      }, 0);
       setTotalDebt(sum);
     }
   };
@@ -121,7 +124,9 @@ export default function ReceivablesPage() {
                 <td className="p-4 text-gray-600">{r.orderCode}</td>
                 <td className="p-4 text-red-600 font-medium">{r.dueDate}</td>
                 <td className="p-4 text-right font-medium">{r.totalDebt.toLocaleString()} ₫</td>
-                <td className="p-4 text-right font-bold text-red-600">{(r.totalDebt - r.paidAmount).toLocaleString()} ₫</td>
+                <td className="p-4 text-right font-bold text-red-600">
+                  {r.status === 'Đã hủy' ? '0' : (r.totalDebt - r.paidAmount).toLocaleString()} ₫
+                </td>
                 <td className="p-4 text-right text-gray-600">{r.paidAmount.toLocaleString()} ₫</td>
                 <td className="p-4 text-center">
                   <span className={`px-2 py-1 rounded-full text-xs font-medium ${
