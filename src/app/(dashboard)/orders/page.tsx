@@ -229,7 +229,7 @@ export default function OrdersPage() {
             <DialogTitle>Chi tiết Đơn hàng: <span className="text-green-700">{selectedOrder?.orderCode}</span></DialogTitle>
           </DialogHeader>
           {selectedOrder && (
-            <div className="space-y-6 py-4">
+            <div className="space-y-6 py-4 overflow-y-auto max-h-[80vh]">
               <div className="grid grid-cols-2 gap-4 text-sm bg-gray-50 p-4 rounded-lg">
                 <div>
                   <p className="text-gray-500 mb-1">Khách hàng</p>
@@ -252,8 +252,8 @@ export default function OrdersPage() {
 
               <div>
                 <h3 className="font-medium mb-3 text-gray-800">Sản phẩm đã mua</h3>
-                <div className="border rounded-lg overflow-hidden">
-                  <Table>
+                <div className="border rounded-lg overflow-x-auto">
+                  <Table className="w-full min-w-[500px]">
                     <TableHeader className="bg-gray-50">
                       <TableRow>
                         <TableHead>Tên mặt hàng</TableHead>
