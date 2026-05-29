@@ -19,6 +19,7 @@ export function Sidebar() {
     { href: "/marketing/reminders", icon: Users, label: "Nhắc mua lại (Zalo)", roles: ["admin", "sale"] },
     { href: "/marketing/broadcast", icon: FileText, label: "Broadcast Zalo", roles: ["admin", "sale"] },
     { href: "/marketing/loyalty", icon: Award, label: "Tích Điểm (Loyalty)", roles: ["admin", "sale"] },
+    { href: "/users", icon: Users, label: "Quản lý nhân sự", roles: ["admin"] },
     { href: "/settings", icon: Settings, label: "Cấu hình", roles: ["admin"] },
   ];
 

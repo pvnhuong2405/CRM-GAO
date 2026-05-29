@@ -5,6 +5,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import * as XLSX from "xlsx";
+import Papa from "papaparse";
 
 export default function CustomersPage() {
   const [customers, setCustomers] = useState<any[]>([]);
@@ -17,6 +19,12 @@ export default function CustomersPage() {
   const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false);
   const [selectedCustomer, setSelectedCustomer] = useState<any>(null);
   const [customerOrders, setCustomerOrders] = useState<any[]>([]);
+
+  // Import states
+  const [isImportModalOpen, setIsImportModalOpen] = useState(false);
+  const [importFile, setImportFile] = useState<File | null>(null);
+  const [importGroupId, setImportGroupId] = useState("");
+  const [isImporting, setIsImporting] = useState(false);
 
   const fetchData = async () => {
     const [cRes, gRes] = await Promise.all([
@@ -100,20 +108,79 @@ export default function CustomersPage() {
     c.phone.includes(search)
   );
 
+  const handleImport = async () => {
+    if (!importFile) return alert("Vui lòng chọn file Excel/CSV");
+    if (!importGroupId) return alert("Vui lòng chọn Nhóm để gán cho các khách hàng này");
+
+    setIsImporting(true);
+    try {
+      let data: any[] = [];
+      if (importFile.name.endsWith('.csv')) {
+        const text = await importFile.text();
+        const result = Papa.parse(text, { header: true });
+        data = result.data;
+      } else {
+        const arrayBuffer = await importFile.arrayBuffer();
+        const workbook = XLSX.read(arrayBuffer, { type: "array" });
+        const sheetName = workbook.SheetNames[0];
+        const worksheet = workbook.Sheets[sheetName];
+        data = XLSX.utils.sheet_to_json(worksheet);
+      }
+
+      // Map data to expected format
+      const formattedData = data.map((row: any) => ({
+        name: row["Tên"] || row["Name"] || row["Họ Tên"] || row["name"],
+        phone: row["SĐT"] || row["Số điện thoại"] || row["Phone"] || row["phone"],
+        groupId: importGroupId,
+        source: row["Nguồn"] || row["Source"] || "Zalo"
+      })).filter(c => c.name && c.phone);
+
+      if (formattedData.length === 0) {
+        setIsImporting(false);
+        return alert("Không tìm thấy dữ liệu hợp lệ trong file (Cần có cột Tên/Name và SĐT/Phone)");
+      }
+
+      const res = await fetch("/api/customers/import", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ customers: formattedData })
+      });
+      
+      const resData = await res.json();
+      if (res.ok) {
+        alert(resData.message);
+        setIsImportModalOpen(false);
+        setImportFile(null);
+        fetchData();
+      } else {
+        alert("Lỗi import: " + resData.error);
+      }
+    } catch (err: any) {
+      alert("Lỗi đọc file: " + err.message);
+    } finally {
+      setIsImporting(false);
+    }
+  };
+
   return (
     <div className="p-6 space-y-6">
       <div className="flex justify-between items-center">
         <h1 className="text-2xl font-bold text-gray-800">Danh sách khách hàng</h1>
         
-        <Dialog open={isModalOpen} onOpenChange={(open) => {
-          setIsModalOpen(open);
-          if (!open) setForm({ id: "", name: "", phone: "", groupId: "", source: "Zalo" });
-        }}>
-          <DialogTrigger render={<Button className="bg-green-600 hover:bg-green-700">+ Thêm mới</Button>} />
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>{form.id ? "Chỉnh sửa khách hàng" : "Thêm khách hàng mới"}</DialogTitle>
-            </DialogHeader>
+        <div className="flex gap-2">
+          <Button variant="outline" className="border-blue-600 text-blue-600 hover:bg-blue-50" onClick={() => setIsImportModalOpen(true)}>
+            📤 Nhập Excel/CSV
+          </Button>
+
+          <Dialog open={isModalOpen} onOpenChange={(open) => {
+            setIsModalOpen(open);
+            if (!open) setForm({ id: "", name: "", phone: "", groupId: "", source: "Zalo" });
+          }}>
+            <DialogTrigger render={<Button className="bg-green-600 hover:bg-green-700">+ Thêm mới</Button>} />
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>{form.id ? "Chỉnh sửa khách hàng" : "Thêm khách hàng mới"}</DialogTitle>
+              </DialogHeader>
             <div className="space-y-4 py-4">
               <div>
                 <label className="text-sm font-medium">Tên khách hàng</label>
@@ -148,7 +215,49 @@ export default function CustomersPage() {
                   <option value="Khác">Khác</option>
                 </select>
               </div>
-              <Button onClick={handleSave} className="w-full bg-green-600 hover:bg-green-700">Lưu thông tin</Button>
+                <Button onClick={handleSave} className="w-full bg-green-600 hover:bg-green-700">Lưu thông tin</Button>
+              </div>
+            </DialogContent>
+          </Dialog>
+        </div>
+
+        {/* Modal Import */}
+        <Dialog open={isImportModalOpen} onOpenChange={setIsImportModalOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Nhập Khách Hàng từ File</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4 py-4">
+              <div className="p-3 bg-blue-50 text-blue-800 text-sm rounded-lg border border-blue-200">
+                <p className="font-medium">Hướng dẫn:</p>
+                <ul className="list-disc pl-5 mt-1">
+                  <li>File hỗ trợ: .xlsx, .csv</li>
+                  <li>Bắt buộc phải có cột <strong>Tên</strong> (hoặc Name) và <strong>SĐT</strong> (hoặc Phone).</li>
+                  <li>Các số điện thoại đã tồn tại sẽ bị bỏ qua tự động.</li>
+                </ul>
+              </div>
+              <div>
+                <label className="text-sm font-medium">Chọn file dữ liệu</label>
+                <Input type="file" accept=".xlsx,.csv" onChange={e => setImportFile(e.target.files?.[0] || null)} />
+              </div>
+              <div>
+                <label className="text-sm font-medium">Gán Nhóm mặc định cho các khách này</label>
+                <select 
+                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                  value={importGroupId} 
+                  onChange={e => setImportGroupId(e.target.value)}
+                >
+                  <option value="">-- Chọn nhóm --</option>
+                  {groups.map(g => <option key={g.id} value={g.id}>{g.name}</option>)}
+                </select>
+              </div>
+              <Button 
+                onClick={handleImport} 
+                disabled={isImporting || !importFile || !importGroupId}
+                className="w-full bg-blue-600 hover:bg-blue-700"
+              >
+                {isImporting ? "Đang xử lý..." : "Tiến hành Import"}
+              </Button>
             </div>
           </DialogContent>
         </Dialog>
