@@ -68,6 +68,7 @@ export async function GET(req: Request) {
         { productId: p2.id, groupId: b2bGroup.id, price: 280000 },
         { productId: p3.id, groupId: leGroup.id, price: 450000 },
         { productId: p3.id, groupId: b2bGroup.id, price: 410000 },
+        { productId: p3.id, groupId: sieuthiGroup.id, price: 400000 },
       ]
     });
 
