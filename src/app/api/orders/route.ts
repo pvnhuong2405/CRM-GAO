@@ -168,26 +168,39 @@ export async function GET(req: Request) {
         shipment: true,
         items: {
           include: { product: true }
-        }
+        },
+        receivables: true
       },
       orderBy: { createdAt: "desc" }
     });
     
     // Map về format UI cũ
-    const mapped = orders.map(o => ({
-      id: o.id,
-      orderCode: o.orderCode,
-      customerId: o.customerId,
-      customer: o.customer,
-      createdBy: o.createdBy,
-      channel: o.channel,
-      status: o.status === "Moi" ? "Mới" : o.status === "ChoGiao" ? "Chờ giao" : o.status === "DangGiao" ? "Đang giao" : o.status === "HoanThanh" ? "Hoàn thành" : "Hủy",
-      totalAmount: o.totalAmount,
-      note: o.note,
-      createdAt: o.createdAt,
-      shipment: o.shipment,
-      items: o.items
-    }));
+    const mapped = orders.map(o => {
+      let paymentStatus = "Thu tiền tươi";
+      if (o.receivables && o.receivables.length > 0) {
+        const r = o.receivables[0];
+        if (r.status === "ChuaThanhToan") paymentStatus = "Nợ toàn bộ";
+        else if (r.status === "ThanhToanMotPhan") paymentStatus = "Nợ (đã thu 1 phần)";
+        else if (r.status === "DaThanhToan") paymentStatus = "Đã thu đủ";
+        else if (r.status === "DaHuy") paymentStatus = "Đã hủy nợ";
+      }
+
+      return {
+        id: o.id,
+        orderCode: o.orderCode,
+        customerId: o.customerId,
+        customer: o.customer,
+        createdBy: o.createdBy,
+        channel: o.channel,
+        status: o.status === "Moi" ? "Mới" : o.status === "ChoGiao" ? "Chờ giao" : o.status === "DangGiao" ? "Đang giao" : o.status === "HoanThanh" ? "Hoàn thành" : "Hủy",
+        totalAmount: o.totalAmount,
+        note: o.note,
+        createdAt: o.createdAt,
+        shipment: o.shipment,
+        items: o.items,
+        paymentStatus
+      };
+    });
     return NextResponse.json(mapped);
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 500 });

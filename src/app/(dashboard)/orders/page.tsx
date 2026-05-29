@@ -149,6 +149,7 @@ export default function OrdersPage() {
               <TableHead>Khách hàng</TableHead>
               <TableHead>Kênh</TableHead>
               <TableHead>Tổng tiền</TableHead>
+              <TableHead>Thu tiền</TableHead>
               <TableHead>Vận chuyển</TableHead>
               <TableHead>Ngày tạo</TableHead>
               <TableHead>Trạng thái</TableHead>
@@ -175,6 +176,17 @@ export default function OrdersPage() {
                 </TableCell>
                 <TableCell className="font-medium text-gray-800">
                   {o.totalAmount?.toLocaleString()} ₫
+                </TableCell>
+                <TableCell>
+                  <Badge variant="outline" className={`
+                    ${o.paymentStatus === 'Thu tiền tươi' ? 'text-green-600 border-green-200' : ''}
+                    ${o.paymentStatus === 'Đã thu đủ' ? 'bg-green-50 text-green-700 border-green-200' : ''}
+                    ${o.paymentStatus === 'Nợ toàn bộ' ? 'bg-red-50 text-red-700 border-red-200' : ''}
+                    ${o.paymentStatus === 'Nợ (đã thu 1 phần)' ? 'bg-orange-50 text-orange-700 border-orange-200' : ''}
+                    ${o.paymentStatus === 'Đã hủy nợ' ? 'bg-gray-50 text-gray-500 border-gray-200' : ''}
+                  `}>
+                    {o.paymentStatus}
+                  </Badge>
                 </TableCell>
                 <TableCell>
                   {o.shipment ? (
@@ -215,7 +227,7 @@ export default function OrdersPage() {
             ))}
             {filteredOrders.length === 0 && (
               <TableRow>
-                <TableCell colSpan={8} className="text-center py-8 text-gray-500">Không tìm thấy đơn hàng nào phù hợp.</TableCell>
+                <TableCell colSpan={9} className="text-center py-8 text-gray-500">Không tìm thấy đơn hàng nào phù hợp.</TableCell>
               </TableRow>
             )}
           </TableBody>
@@ -243,6 +255,10 @@ export default function OrdersPage() {
                 <div>
                   <p className="text-gray-500 mb-1">Trạng thái hiện tại</p>
                   <Badge className={getStatusColor(selectedOrder.status)}>{selectedOrder.status}</Badge>
+                </div>
+                <div>
+                  <p className="text-gray-500 mb-1">Thanh toán</p>
+                  <Badge variant="outline">{selectedOrder.paymentStatus}</Badge>
                 </div>
                 <div>
                   <p className="text-gray-500 mb-1">Ngày đặt</p>
