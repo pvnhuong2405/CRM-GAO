@@ -1,5 +1,11 @@
+export const dynamic = "force-dynamic";
 import prisma from "@/lib/prisma";
 import RevenueChart from "@/components/dashboard/RevenueChart";
+
+function getVNDateString(date: Date) {
+  const vnTime = new Date(date.toLocaleString("en-US", { timeZone: "Asia/Ho_Chi_Minh" }));
+  return `${vnTime.getDate().toString().padStart(2, '0')}/${(vnTime.getMonth() + 1).toString().padStart(2, '0')}`;
+}
 
 export default async function DashboardPage() {
   const orders = await prisma.order.findMany();
@@ -16,14 +22,14 @@ export default async function DashboardPage() {
   for (let i = 6; i >= 0; i--) {
     const d = new Date();
     d.setDate(d.getDate() - i);
-    const dateStr = `${d.getDate().toString().padStart(2, '0')}/${(d.getMonth() + 1).toString().padStart(2, '0')}`;
+    const dateStr = getVNDateString(d);
     chartDataMap[dateStr] = 0;
   }
 
   // Cộng dồn doanh thu vào ngày tương ứng
   orders.forEach((o: any) => {
     const d = new Date(o.createdAt);
-    const dateStr = `${d.getDate().toString().padStart(2, '0')}/${(d.getMonth() + 1).toString().padStart(2, '0')}`;
+    const dateStr = getVNDateString(d);
     if (chartDataMap[dateStr] !== undefined) {
       chartDataMap[dateStr] += (o.totalAmount || 0);
     }
