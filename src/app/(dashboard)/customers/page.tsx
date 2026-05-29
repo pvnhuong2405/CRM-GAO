@@ -158,8 +158,8 @@ export default function CustomersPage() {
             <DialogHeader>
               <DialogTitle>Lịch sử mua hàng - {selectedCustomer?.name}</DialogTitle>
             </DialogHeader>
-            <div className="py-4">
-              <Table>
+            <div className="py-4 overflow-x-auto max-h-[70vh] overflow-y-auto">
+              <Table className="w-full">
                 <TableHeader>
                   <TableRow className="bg-gray-50">
                     <TableHead>Mã Đơn</TableHead>
