@@ -41,7 +41,7 @@ export default function ProductsPage() {
           retailPrice: retailPrice ? retailPrice.price : 0,
           b2bPrice: b2bPrice ? b2bPrice.price : 0,
           sieuThiPrice: sieuThiPrice ? sieuThiPrice.price : 0,
-          stock: Math.floor(Math.random() * 100) + 10 // stock mẫu
+          stock: p.stock
         };
       });
       setProductData(mapped);

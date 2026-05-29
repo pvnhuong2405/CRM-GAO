@@ -3,20 +3,21 @@ import prisma from "@/lib/prisma";
 
 export async function PATCH(req: Request, { params }: { params: { id: string } }) {
   try {
-    const { stock } = await req.json();
+    const { id } = params;
+    const body = await req.json();
 
-    if (stock === undefined) {
-      return NextResponse.json({ error: "Thiếu dữ liệu tồn kho" }, { status: 400 });
+    if (body.stock === undefined || isNaN(Number(body.stock))) {
+      return NextResponse.json({ error: "Dữ liệu tồn kho không hợp lệ" }, { status: 400 });
     }
 
-    const product = await prisma.product.update({
-      where: { id: params.id },
-      data: { stock: Number(stock) }
+    const updatedProduct = await prisma.product.update({
+      where: { id },
+      data: { stock: Number(body.stock) }
     });
 
-    return NextResponse.json({ message: "Cập nhật tồn kho thành công", stock: product.stock });
+    return NextResponse.json(updatedProduct);
   } catch (error: any) {
-    if (error.code === 'P2025') return NextResponse.json({ error: "Không tìm thấy sản phẩm" }, { status: 404 });
+    console.error("PATCH stock error:", error);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }
