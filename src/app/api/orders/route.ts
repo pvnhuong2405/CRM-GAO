@@ -29,6 +29,15 @@ export async function POST(req: Request) {
     const orderCode = `DH${Date.now().toString().slice(-6)}`;
     
     const result = await prisma.$transaction(async (tx) => {
+      // 0. Kiểm tra tồn kho trước khi tạo
+      for (const item of items) {
+        const product = await tx.product.findUnique({ where: { id: item.productId } });
+        if (!product) throw new Error("Sản phẩm không tồn tại.");
+        if (product.stock < item.quantity) {
+          throw new Error(`Sản phẩm "${product.name}" không đủ tồn kho (còn ${product.stock}, yêu cầu ${item.quantity}).`);
+        }
+      }
+
       // 1. Tạo Order & OrderItems
       const order = await tx.order.create({
         data: {
@@ -59,6 +68,14 @@ export async function POST(req: Request) {
           })
         }
       });
+
+      // 1.1 Trừ tồn kho
+      for (const item of items) {
+        await tx.product.update({
+          where: { id: item.productId },
+          data: { stock: { decrement: item.quantity } }
+        });
+      }
 
       // 2. Xử lý Công nợ nếu là nhóm B2B/Siêu thị
       if (isB2B) {

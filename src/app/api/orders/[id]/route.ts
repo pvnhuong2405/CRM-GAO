@@ -52,7 +52,8 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
 
     const result = await prisma.$transaction(async (tx) => {
       const existingOrder = await tx.order.findUnique({
-        where: { id: params.id }
+        where: { id: params.id },
+        include: { items: true } // Cần items để cộng trả lại kho
       });
       if (!existingOrder) throw new Error("Không tìm thấy đơn hàng");
 
@@ -61,7 +62,16 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
         data: { status: dbStatus as any }
       });
 
-      if (dbStatus === "Huy") {
+      // Nếu đơn bị hủy và trước đó chưa hủy -> Cộng trả lại tồn kho
+      if (dbStatus === "Huy" && existingOrder.status !== "Huy") {
+        for (const item of existingOrder.items) {
+          await tx.product.update({
+            where: { id: item.productId },
+            data: { stock: { increment: item.quantity } }
+          });
+        }
+        
+        // Hủy luôn công nợ
         await tx.receivable.updateMany({
           where: { orderId: order.id },
           data: { status: "DaHuy" }
